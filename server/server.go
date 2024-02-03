@@ -5,9 +5,9 @@ import (
 
 	"home_manager/config"
 
-	handlers "home_manager/handlers"
-	repositories "home_manager/repositories"
-	usecases "home_manager/usecases"
+	"home_manager/handlers"
+	"home_manager/repositories"
+	"home_manager/usecases"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"

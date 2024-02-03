@@ -3,35 +3,33 @@ package repositories
 import (
 	"home_manager/entities"
 
+	"github.com/labstack/gommon/log"
 	"gorm.io/gorm"
 )
 
 type UserRepository interface {
-	Login(in *entities.LoginUserDto) (string, error)
+	GetUserByEmail(email string) (*entities.User, error)
 }
 
-type userRepositoryPostgress struct {
-	UserRepository
+type UserRepositoryPostgress struct {
 	db *gorm.DB
 }
 
-func NewUserRepository(db *gorm.DB) UserRepository {
-	return &userRepositoryPostgress{db: db}
-}
-
-func (r *userRepositoryPostgress) Login(in *entities.LoginUserDto) (string, error) {
-
+// GetUserByEmail implements UserRepository.
+func (pgDB *UserRepositoryPostgress) GetUserByEmail(email string) (*entities.User, error) {
+	var storedUser *entities.User
 	//TODO validate at some level and process login
-	println("Email: " + in.Email + " Password: " + in.Password)
-	// result := r.db.Create(data)
+	result := pgDB.db.Find(&entities.User{Email: email}, storedUser)
 
-	// if result.Error != nil {
-	// 	log.Errorf("InsertUser: %v", result.Error)
-	// 	return result.Error
-	// }
-
-	// log.Debugf("InsertUser: %v", result.RowsAffected)
+	if result.Error != nil {
+		log.Errorf("GetUserByEmail: %v", result.Error)
+		return nil, result.Error
+	}
 
 	//TODO return token
-	return "test_token", nil
+	return storedUser, nil
+}
+
+func NewUserRepository(db *gorm.DB) UserRepository {
+	return &UserRepositoryPostgress{db: db}
 }

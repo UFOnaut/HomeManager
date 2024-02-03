@@ -1,9 +1,8 @@
 package usecases
 
 import (
-	entities "home_manager/entities"
-	models "home_manager/models"
-	repositories "home_manager/repositories"
+	"home_manager/models"
+	"home_manager/repositories"
 )
 
 type UserUsecase interface {
@@ -11,8 +10,22 @@ type UserUsecase interface {
 }
 
 type UserUsecaseImpl struct {
-	UserUsecase
 	repository repositories.UserRepository
+}
+
+func (u *UserUsecaseImpl) Login(in *models.LoginData) (string, error) {
+	user, err := u.repository.GetUserByEmail(in.Email)
+	if err != nil {
+		return "", err
+	}
+	if user.IsPasswordCorrect(in.Password) {
+		//TODO get session by user id and return token
+		//If no teken yet or expired - generate new one and save to session table
+		token := ""
+		return token, nil
+	} else {
+		return "", err
+	}
 }
 
 func NewUserUsecase(
@@ -21,11 +34,4 @@ func NewUserUsecase(
 	return &UserUsecaseImpl{
 		repository: repository,
 	}
-}
-
-func (u *UserUsecaseImpl) Login(in *models.LoginData) (string, error) {
-	loginUserData := &entities.LoginUserDto{
-		Email: in.Email, Password: in.Password,
-	}
-	return u.repository.Login(loginUserData)
 }
