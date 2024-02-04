@@ -7,22 +7,19 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
-	"time"
 
 	"gorm.io/gorm"
 )
 
 type (
-	GroupIds []int64
+	GroupIds []uint
 
 	User struct {
 		gorm.Model
-		Id        int64     `gorm:"primaryKey;autoIncrement" json:"id"`
-		Email     string    `json:"email"`
-		Password  string    `json:"password"`
-		GroupIds  GroupIds  `gorm:"type:text" json:"group_ids"`
-		Name      string    `json:"name"`
-		CreatedAt time.Time `json:"createdAt"`
+		Email    string   `json:"email"`
+		Password string   `json:"password"`
+		GroupIds GroupIds `json:"group_ids" gorm:"type:text" `
+		Name     string   `json:"name"`
 	}
 )
 
@@ -36,11 +33,6 @@ func (groupIds GroupIds) Value() (driver.Value, error) {
 
 func (groupIds GroupIds) Scan(value interface{}) error {
 	return json.Unmarshal([]byte(value.(string)), &groupIds)
-}
-
-func (u *User) BeforeCreate(tx *gorm.DB) (err error) {
-	u.Password = hash(u.Password)
-	return nil
 }
 
 func (u *User) BeforeSave(tx *gorm.DB) (err error) {

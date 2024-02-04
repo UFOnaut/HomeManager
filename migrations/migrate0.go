@@ -14,10 +14,10 @@ func main() {
 }
 
 func migrate(db database.Database) {
-	db.GetDb().Migrator().CreateTable(&entities.User{})
+	//db.GetDb().Migrator().CreateTable(&entities.User{})
 	db.GetDb().Create(&entities.User{
-		Id:       3,
 		Email:    "test@gmail.com",
+		Password: "test_password",
 		Name:     "Illia",
 		GroupIds: entities.GroupIds{1, 2, 3},
 	})

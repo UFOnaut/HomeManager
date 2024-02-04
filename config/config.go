@@ -10,6 +10,7 @@ type (
 	Config struct {
 		App App
 		Db  Db
+		Jwt Jwt
 	}
 
 	App struct {
@@ -24,6 +25,10 @@ type (
 		DBName   string
 		SSLMode  string
 		TimeZone string
+	}
+
+	Jwt struct {
+		SecretKey string
 	}
 )
 
@@ -49,6 +54,9 @@ func GetConfig() Config {
 			DBName:   viper.GetString("database.dbname"),
 			SSLMode:  viper.GetString("database.sslmode"),
 			TimeZone: viper.GetString("database.timezone"),
+		},
+		Jwt: Jwt{
+			SecretKey: viper.GetString("jwt_secret_key"),
 		},
 	}
 }

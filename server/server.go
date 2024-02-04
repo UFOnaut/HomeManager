@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"home_manager/config"
-
 	"home_manager/handlers"
+
 	"home_manager/repositories"
 	"home_manager/usecases"
 
@@ -43,9 +43,9 @@ func (s *echoServer) Start() {
 func (s *echoServer) initializeUserHttpHandler() {
 	// Initialize all layers
 	userRepository := repositories.NewUserRepository(s.db)
-	userUsecase := usecases.NewUserUsecase(userRepository)
-	userHttpHandler := handlers.NewUserHttpHandler(userUsecase)
+	loginUsecase := usecases.NewLoginUseCase(userRepository)
+	loginHttpHandler := handlers.NewLoginHttpHandler(loginUsecase)
 
 	// Routers
-	s.app.POST("/login", userHttpHandler.Login)
+	s.app.POST("/login", loginHttpHandler.Login)
 }
