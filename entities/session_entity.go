@@ -17,6 +17,7 @@ type (
 )
 
 func (session *Session) IsValid() bool {
-	return session.CreatedAt.Add(time.Minute*SessionLifeMinutes).After(time.Now()) ||
-		session.UpdatedAt.Add(time.Minute*SessionLifeMinutes).After(time.Now())
+	return (session.CreatedAt.Add(time.Minute*SessionLifeMinutes).After(time.Now()) ||
+		session.UpdatedAt.Add(time.Minute*SessionLifeMinutes).After(time.Now())) &&
+		session.Token != ""
 }

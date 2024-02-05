@@ -36,8 +36,7 @@ func (pgDB *UserRepositoryPostgress) GetSessionByUserId(id uint) Result[Session]
 	result := pgDB.db.Take(&Session{UserId: id}, storedSession)
 
 	if result.Error != nil {
-		log.Errorf("GetTokenByUserId: %v", result.Error)
-		return Result[Session]{Error: result.Error.Error()}
+		return Result[Session]{Result: Session{}}
 	}
 
 	return Result[Session]{Result: storedSession}

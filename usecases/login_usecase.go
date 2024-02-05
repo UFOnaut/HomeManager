@@ -1,12 +1,10 @@
 package usecases
 
 import (
-	"github.com/golang-jwt/jwt"
-	"home_manager/config"
 	. "home_manager/entities"
 	"home_manager/models"
 	"home_manager/repositories"
-	"time"
+	"home_manager/utils"
 )
 
 type LoginUseCase interface {
@@ -27,13 +25,10 @@ func (u *LoginUseCaseImpl) Login(in *models.LoginData) Result[string] {
 	if user.IsPasswordCorrect(in.Password) {
 		getSessionResult := u.repository.GetSessionByUserId(user.ID)
 
-		if getSessionResult.IsError() {
-			return Result[string]{Error: getSessionResult.Error}
-		}
-
-		session := getSessionResult.Result
-		if !session.IsValid() {
-			createTokenResult := createToken(user.Email)
+		token := getSessionResult.Result.Token
+		verifyTokenError := utils.VerifyToken(token)
+		if verifyTokenError != nil {
+			createTokenResult := utils.CreateToken(user.Email)
 			if createTokenResult.IsError() {
 				return Result[string]{Error: createTokenResult.Error}
 			}
@@ -42,7 +37,7 @@ func (u *LoginUseCaseImpl) Login(in *models.LoginData) Result[string] {
 			return Result[string]{Result: newToken}
 		}
 
-		return Result[string]{Result: session.Token}
+		return Result[string]{Result: token}
 	} else {
 		return Result[string]{Error: "Incorrect password"}
 	}
@@ -54,19 +49,4 @@ func NewLoginUseCase(
 	return &LoginUseCaseImpl{
 		repository: repository,
 	}
-}
-
-func createToken(username string) Result[string] {
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256,
-		jwt.MapClaims{
-			"username": username,
-			"exp":      time.Now().Add(time.Hour * 24).Unix(),
-		})
-	cfg := config.GetConfig()
-	tokenString, err := token.SignedString(cfg.Jwt.SecretKey)
-	if err != nil {
-		return Result[string]{Error: err.Error()}
-	}
-
-	return Result[string]{Result: tokenString}
 }

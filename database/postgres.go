@@ -2,6 +2,7 @@ package database
 
 import (
 	"fmt"
+	"home_manager/entities"
 
 	"home_manager/config"
 
@@ -30,6 +31,9 @@ func NewPostgresDatabase(cfg *config.Config) Database {
 		panic("failed to connect database")
 	}
 
+	if db.AutoMigrate(&entities.User{}, &entities.Session{}) != nil {
+		panic("failed to auto migrate database")
+	}
 	return &postgresDatabase{Db: db}
 }
 
