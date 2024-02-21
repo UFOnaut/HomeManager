@@ -4,12 +4,15 @@ import (
 	"github.com/labstack/gommon/log"
 	"gorm.io/gorm"
 	. "home_manager/entities"
+	"home_manager/handlers/errors"
+	"home_manager/utils"
 )
 
 type UserRepository interface {
 	GetUserByEmail(email string) Result[User]
 	GetSessionByUserId(id uint) Result[Session]
 	SaveSession(token string, userId uint) bool
+	RegisterNewUserByEmail(email string, password string) Result[string]
 }
 
 type UserRepositoryPostgress struct {
@@ -17,8 +20,8 @@ type UserRepositoryPostgress struct {
 }
 
 func (pgDB *UserRepositoryPostgress) GetUserByEmail(email string) Result[User] {
-	storedUser := User{Email: email}
-	result := pgDB.db.Take(&storedUser)
+	storedUser := User{}
+	result := pgDB.db.Where("email = ?", email).First(&storedUser)
 
 	if result.Error != nil {
 		log.Errorf("GetUserByEmail: %v", result.Error)
@@ -49,6 +52,34 @@ func (pgDB *UserRepositoryPostgress) SaveSession(token string, userId uint) bool
 		return false
 	}
 	return true
+}
+
+func (pgDB *UserRepositoryPostgress) RegisterNewUserByEmail(email string, password string) Result[string] {
+	var verificationToken string
+	err := pgDB.db.Transaction(func(tx *gorm.DB) error {
+		newUser := User{Email: email, Password: password}
+		if err := tx.Create(&newUser).Error; err != nil {
+			return err
+		}
+
+		verificationToken := utils.CreateToken(email)
+		if verificationToken.IsError() {
+			return &errors.GeneralError{
+				Message: "Verification token cannot be generated",
+			}
+		}
+
+		if err := tx.Create(&VerificationToken{UserId: newUser.ID, VerificationToken: verificationToken.Result}).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return Result[string]{Error: "Verification token error: " + err.Error()}
+	}
+	return Result[string]{Result: verificationToken}
 }
 
 func NewUserRepository(db *gorm.DB) UserRepository {

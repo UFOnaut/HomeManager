@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"home_manager/repositories"
 	"net/http"
 
 	"home_manager/handlers/response"
@@ -21,9 +22,9 @@ type (
 	}
 )
 
-func NewLoginHttpHandler(loginUseCase usecases.LoginUseCase) LoginHandler {
+func NewLoginHttpHandler(repository repositories.UserRepository) LoginHandler {
 	return &LoginHttpHandler{
-		LoginUsecase: loginUseCase,
+		LoginUsecase: usecases.NewLoginUseCase(repository),
 	}
 }
 

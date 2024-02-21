@@ -31,7 +31,7 @@ func NewPostgresDatabase(cfg *config.Config) Database {
 		panic("failed to connect database")
 	}
 
-	if db.AutoMigrate(&entities.User{}, &entities.Session{}) != nil {
+	if db.AutoMigrate(&entities.User{}, &entities.Session{}, &entities.Group{}, &entities.VerificationToken{}) != nil {
 		panic("failed to auto migrate database")
 	}
 	return &postgresDatabase{Db: db}

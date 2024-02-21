@@ -20,6 +20,13 @@ type (
 		Password string   `json:"password"`
 		GroupIds GroupIds `json:"group_ids" gorm:"type:text" `
 		Name     string   `json:"name"`
+		Verified bool     `json:"verified"`
+	}
+
+	VerificationToken struct {
+		gorm.Model
+		UserId            uint   `json:"user_id"`
+		VerificationToken string `json:"verification_token"`
 	}
 )
 

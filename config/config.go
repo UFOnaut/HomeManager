@@ -8,9 +8,11 @@ import (
 
 type (
 	Config struct {
-		App App
-		Db  Db
-		Jwt Jwt
+		App              App
+		Db               Db
+		Jwt              Jwt
+		EmailCredentials EmailCredentials
+		Endpoint         Endpoint
 	}
 
 	App struct {
@@ -29,6 +31,15 @@ type (
 
 	Jwt struct {
 		SecretKey string
+	}
+
+	EmailCredentials struct {
+		Email    string
+		Password string
+	}
+
+	Endpoint struct {
+		BaseUrl string
 	}
 )
 
@@ -57,6 +68,13 @@ func GetConfig() Config {
 		},
 		Jwt: Jwt{
 			SecretKey: viper.GetString("jwt_secret_key"),
+		},
+		EmailCredentials: EmailCredentials{
+			Email:    viper.GetString("email_credentials.email"),
+			Password: viper.GetString("email_credentials.password"),
+		},
+		Endpoint: Endpoint{
+			BaseUrl: viper.GetString("endpoint.base_url"),
 		},
 	}
 }

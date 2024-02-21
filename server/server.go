@@ -6,12 +6,10 @@ import (
 	"home_manager/config"
 	"home_manager/handlers"
 
-	"home_manager/repositories"
-	"home_manager/usecases"
-
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"gorm.io/gorm"
+	"home_manager/repositories"
 )
 
 type Server interface {
@@ -43,9 +41,10 @@ func (s *echoServer) Start() {
 func (s *echoServer) initializeUserHttpHandler() {
 	// Initialize all layers
 	userRepository := repositories.NewUserRepository(s.db)
-	loginUsecase := usecases.NewLoginUseCase(userRepository)
-	loginHttpHandler := handlers.NewLoginHttpHandler(loginUsecase)
+	loginHttpHandler := handlers.NewLoginHttpHandler(userRepository)
+	registerHttpHandler := handlers.NewRegisterHttpHandler(userRepository)
 
 	// Routers
 	s.app.POST("/login", loginHttpHandler.Login)
+	s.app.POST("/register", registerHttpHandler.Register)
 }
