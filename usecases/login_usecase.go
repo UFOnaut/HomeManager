@@ -18,7 +18,7 @@ type LoginUseCaseImpl struct {
 func (u *LoginUseCaseImpl) Login(in *models.LoginData) Result[string] {
 	getUserResult := u.repository.GetUserByEmail(in.Email)
 	if getUserResult.IsError() {
-		return Result[string]{Error: getUserResult.Error}
+		return Error[string](getUserResult.Error)
 	}
 
 	user := getUserResult.Result
@@ -30,16 +30,16 @@ func (u *LoginUseCaseImpl) Login(in *models.LoginData) Result[string] {
 		if verifyTokenError != nil {
 			createTokenResult := utils.CreateToken(user.Email)
 			if createTokenResult.IsError() {
-				return Result[string]{Error: createTokenResult.Error}
+				return createTokenResult
 			}
 			newToken := createTokenResult.Result
 			u.repository.SaveSession(newToken, user.ID)
-			return Result[string]{Result: newToken}
+			return Success(newToken)
 		}
 
-		return Result[string]{Result: token}
+		return Success(token)
 	} else {
-		return Result[string]{Error: "Incorrect password"}
+		return Error[string]("Incorrect password")
 	}
 }
 

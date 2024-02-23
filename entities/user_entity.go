@@ -25,8 +25,8 @@ type (
 
 	VerificationToken struct {
 		gorm.Model
-		UserId            uint   `json:"user_id"`
-		VerificationToken string `json:"verification_token"`
+		UserId uint   `json:"user_id"`
+		Token  string `json:"token"`
 	}
 )
 

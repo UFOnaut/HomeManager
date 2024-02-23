@@ -1,13 +1,16 @@
 package utils
 
 import (
+	"bytes"
 	"fmt"
 	"home_manager/config"
+	"home_manager/entities"
 	"net/smtp"
+	"strconv"
 	"strings"
 )
 
-func SendVerificationEmail(email string, verificationToken string) error {
+func SendVerificationEmail(email string, token entities.VerificationToken) error {
 	cfg := config.GetConfig()
 	// Sender data.
 	emailCredentials := cfg.EmailCredentials
@@ -26,16 +29,20 @@ func SendVerificationEmail(email string, verificationToken string) error {
 
 	// Message.
 	var message strings.Builder
-	message.WriteString("Please verify your email with this link ")
+	message.WriteString("Please verify your email with this link\n")
 	message.WriteString(baseUrl)
-	message.WriteString("?email=" + email)
-	message.WriteString("&verify_token=" + verificationToken)
+	message.WriteString("?userId=" + strconv.Itoa(int(token.UserId)))
+	message.WriteString("&verify_token=" + token.Token)
+	fmt.Println(message.String())
 
 	// Authentication.
 	auth := smtp.PlainAuth("", from, password, smtpHost)
 
+	var body bytes.Buffer
+	body.Write([]byte(fmt.Sprintf(message.String())))
+
 	// Sending email.
-	err := smtp.SendMail(smtpHost+":"+smtpPort, auth, from, to, []byte(message.String()))
+	err := smtp.SendMail(smtpHost+":"+smtpPort, auth, from, to, body.Bytes())
 	if err != nil {
 		fmt.Println(err)
 		return err

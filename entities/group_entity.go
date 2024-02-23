@@ -7,7 +7,7 @@ import (
 type (
 	Group struct {
 		gorm.Model
-		Name          string `json:"name"`
-		ParticipantId []uint `json:"participant_ids"`
+		Name          string   `json:"name"`
+		ParticipantId GroupIds `json:"participant_ids"`
 	}
 )

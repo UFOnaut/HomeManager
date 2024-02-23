@@ -16,15 +16,15 @@ func getSignedString() string {
 func CreateToken(username string) entities.Result[string] {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256,
 		jwt.MapClaims{
-			"username": username,
+			"username": username + time.Now().String(),
 			"exp":      time.Now().Add(time.Hour * 24).Unix(),
 		})
 	tokenString, err := token.SignedString([]byte(getSignedString()))
 	if err != nil {
-		return entities.Result[string]{Error: err.Error()}
+		return entities.Error[string](err.Error())
 	}
 
-	return entities.Result[string]{Result: tokenString}
+	return entities.Success(tokenString)
 }
 
 func VerifyToken(tokenString string) error {

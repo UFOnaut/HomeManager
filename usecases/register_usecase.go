@@ -19,18 +19,17 @@ func (u *RegisterUseCaseImpl) Register(in *models.RegisterData) Result[string] {
 	getUserResult := u.repository.GetUserByEmail(in.Email)
 
 	if !getUserResult.IsError() {
-		return Result[string]{Error: "User already exists"}
+		return Error[string]("User already exists")
 	} else {
-		result := u.repository.RegisterNewUserByEmail(in.Email, in.Password)
-		if !result.IsError() {
-			verificationToken := result.Result
-			err := utils.SendVerificationEmail(in.Email, verificationToken)
-			if err != nil {
-				return Result[string]{Error: "Send verification email error: " + err.Error()}
-			}
-			//TODO make endpoint to handle this GET
+		registerResult := u.repository.RegisterNewUserByEmail(in.Email, in.Password)
+		if registerResult.IsError() {
+			return Error[string](registerResult.Error)
 		}
-		return result
+		sendVerificationResult := utils.SendVerificationEmail(in.Email, registerResult.Result)
+		if sendVerificationResult != nil {
+			return Error[string]("Send verification email error: " + sendVerificationResult.Error())
+		}
+		return Success(registerResult.Result.Token)
 	}
 
 }

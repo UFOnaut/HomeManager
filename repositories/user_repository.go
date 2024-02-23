@@ -12,7 +12,8 @@ type UserRepository interface {
 	GetUserByEmail(email string) Result[User]
 	GetSessionByUserId(id uint) Result[Session]
 	SaveSession(token string, userId uint) bool
-	RegisterNewUserByEmail(email string, password string) Result[string]
+	RegisterNewUserByEmail(email string, password string) Result[VerificationToken]
+	VerifyEmail(userId uint, verifyToken string) Result[string]
 }
 
 type UserRepositoryPostgress struct {
@@ -25,13 +26,13 @@ func (pgDB *UserRepositoryPostgress) GetUserByEmail(email string) Result[User] {
 
 	if result.Error != nil {
 		log.Errorf("GetUserByEmail: %v", result.Error)
-		return Result[User]{Error: result.Error.Error()}
+		return Error[User](result.Error.Error())
 	} else if result.RowsAffected == 0 {
 		log.Errorf("GetUserByEmail: No user found")
-		return Result[User]{Error: "No user found"}
+		return Error[User]("No user found")
 	}
 
-	return Result[User]{Result: storedUser}
+	return Success(storedUser)
 }
 
 func (pgDB *UserRepositoryPostgress) GetSessionByUserId(id uint) Result[Session] {
@@ -39,10 +40,10 @@ func (pgDB *UserRepositoryPostgress) GetSessionByUserId(id uint) Result[Session]
 	result := pgDB.db.Take(&Session{UserId: id}, storedSession)
 
 	if result.Error != nil {
-		return Result[Session]{Result: Session{}}
+		return Success(Session{}) //new session
 	}
 
-	return Result[Session]{Result: storedSession}
+	return Success(storedSession)
 }
 
 func (pgDB *UserRepositoryPostgress) SaveSession(token string, userId uint) bool {
@@ -54,32 +55,76 @@ func (pgDB *UserRepositoryPostgress) SaveSession(token string, userId uint) bool
 	return true
 }
 
-func (pgDB *UserRepositoryPostgress) RegisterNewUserByEmail(email string, password string) Result[string] {
+func (pgDB *UserRepositoryPostgress) RegisterNewUserByEmail(email string, password string) Result[VerificationToken] {
 	var verificationToken string
+	newUser := User{Email: email, Password: password}
 	err := pgDB.db.Transaction(func(tx *gorm.DB) error {
-		newUser := User{Email: email, Password: password}
-		if err := tx.Create(&newUser).Error; err != nil {
-			return err
+		if createUserErr := tx.Create(&newUser).Error; createUserErr != nil {
+			return createUserErr
 		}
 
-		verificationToken := utils.CreateToken(email)
-		if verificationToken.IsError() {
+		createTokenResult := utils.CreateToken(email)
+		if createTokenResult.IsError() {
 			return &errors.GeneralError{
 				Message: "Verification token cannot be generated",
 			}
 		}
 
-		if err := tx.Create(&VerificationToken{UserId: newUser.ID, VerificationToken: verificationToken.Result}).Error; err != nil {
+		if err := tx.Create(&VerificationToken{UserId: newUser.ID, Token: createTokenResult.Result}).Error; err != nil {
 			return err
+		}
+
+		verificationToken = createTokenResult.Result
+		return nil
+	})
+
+	if err != nil {
+		return Error[VerificationToken]("Verification token error: " + err.Error())
+	}
+	return Success(VerificationToken{
+		Token:  verificationToken,
+		UserId: newUser.ID,
+	})
+}
+
+func (pgDB *UserRepositoryPostgress) VerifyEmail(userId uint, verifyToken string) Result[string] {
+	err := pgDB.db.Transaction(func(tx *gorm.DB) error {
+		var verificationToken VerificationToken
+		result := pgDB.db.Where(&VerificationToken{UserId: userId, Token: verifyToken}).First(&verificationToken)
+
+		if result.Error != nil || result.RowsAffected == 0 {
+			log.Errorf("VerifyEmail: token not found")
+			return &errors.GeneralError{
+				Message: "VerifyEmail token not found",
+			}
+		}
+
+		result = pgDB.db.Model(&User{}).Where("ID = ?", userId).Update("verified", "true")
+
+		if result.Error != nil || result.RowsAffected == 0 {
+			log.Errorf("VerifyEmail")
+			return &errors.GeneralError{
+				Message: "VerifyEmail error",
+			}
+		}
+
+		result = pgDB.db.Where("token = ?", "verifyToken").Delete(&VerificationToken{})
+
+		if result.Error != nil || result.RowsAffected == 0 {
+			log.Errorf("VerifyEmail: token not found")
+			return &errors.GeneralError{
+				Message: "VerifyEmail token not found",
+			}
 		}
 
 		return nil
 	})
 
 	if err != nil {
-		return Result[string]{Error: "Verification token error: " + err.Error()}
+		return Error[string](err.Error())
 	}
-	return Result[string]{Result: verificationToken}
+
+	return Success("Verified successfully")
 }
 
 func NewUserRepository(db *gorm.DB) UserRepository {
