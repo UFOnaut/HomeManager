@@ -108,7 +108,7 @@ func (pgDB *UserRepositoryPostgress) VerifyEmail(userId uint, verifyToken string
 			}
 		}
 
-		result = pgDB.db.Where("token = ?", "verifyToken").Delete(&VerificationToken{})
+		result = pgDB.db.Where("token = ?", verifyToken).Delete(&VerificationToken{})
 
 		if result.Error != nil || result.RowsAffected == 0 {
 			log.Errorf("VerifyEmail: token not found")

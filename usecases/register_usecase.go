@@ -8,14 +8,14 @@ import (
 )
 
 type RegisterUseCase interface {
-	Register(in *models.RegisterData) Result[string]
+	Execute(in *models.RegisterData) Result[string]
 }
 
 type RegisterUseCaseImpl struct {
 	repository repositories.UserRepository
 }
 
-func (u *RegisterUseCaseImpl) Register(in *models.RegisterData) Result[string] {
+func (u *RegisterUseCaseImpl) Execute(in *models.RegisterData) Result[string] {
 	getUserResult := u.repository.GetUserByEmail(in.Email)
 
 	if !getUserResult.IsError() {

@@ -8,14 +8,14 @@ import (
 )
 
 type LoginUseCase interface {
-	Login(in *models.LoginData) Result[string]
+	Execute(in *models.LoginData) Result[string]
 }
 
 type LoginUseCaseImpl struct {
 	repository repositories.UserRepository
 }
 
-func (u *LoginUseCaseImpl) Login(in *models.LoginData) Result[string] {
+func (u *LoginUseCaseImpl) Execute(in *models.LoginData) Result[string] {
 	getUserResult := u.repository.GetUserByEmail(in.Email)
 	if getUserResult.IsError() {
 		return Error[string](getUserResult.Error)

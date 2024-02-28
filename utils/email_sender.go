@@ -31,7 +31,8 @@ func SendVerificationEmail(email string, token entities.VerificationToken) error
 	var message strings.Builder
 	message.WriteString("Please verify your email with this link\n")
 	message.WriteString(baseUrl)
-	message.WriteString("?userId=" + strconv.Itoa(int(token.UserId)))
+	message.WriteString("/verify")
+	message.WriteString("?user_id=" + strconv.Itoa(int(token.UserId)))
 	message.WriteString("&verify_token=" + token.Token)
 	fmt.Println(message.String())
 

@@ -36,7 +36,7 @@ func (h *LoginHttpHandler) Login(c echo.Context) error {
 		return response.MakeBasicResponse(c, http.StatusBadRequest, "Bad request")
 	}
 
-	loginResult := h.LoginUsecase.Login(reqBody)
+	loginResult := h.LoginUsecase.Execute(reqBody)
 	if loginResult.IsError() {
 		return response.MakeBasicResponse(c, http.StatusInternalServerError, loginResult.Error)
 	}
