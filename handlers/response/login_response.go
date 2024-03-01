@@ -1,13 +1,18 @@
 package response
 
-import "github.com/labstack/echo/v4"
+import (
+	"github.com/labstack/echo/v4"
+	"home_manager/entities"
+)
 
 type LoginResponse struct {
-	Token string `json:"token"`
+	AuthToken    string `json:"auth_token"`
+	RefreshToken string `json:"refresh_token"`
 }
 
-func MakeLoginResponse(c echo.Context, responseCode int, token string) error {
+func MakeLoginResponse(c echo.Context, responseCode int, session entities.Session) error {
 	return c.JSON(responseCode, &LoginResponse{
-		Token: token,
+		AuthToken:    session.AuthToken,
+		RefreshToken: session.RefreshToken,
 	})
 }

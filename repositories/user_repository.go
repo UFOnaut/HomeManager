@@ -11,9 +11,10 @@ import (
 type UserRepository interface {
 	GetUserByEmail(email string) Result[User]
 	GetSessionByUserId(id uint) Result[Session]
-	SaveSession(token string, userId uint) bool
+	GenerateNewSession(user User) Result[Session]
 	RegisterNewUserByEmail(email string, password string) Result[VerificationToken]
 	VerifyEmail(userId uint, verifyToken string) Result[string]
+	RefreshToken(refreshToken string) Result[Session]
 }
 
 type UserRepositoryPostgress struct {
@@ -46,13 +47,25 @@ func (pgDB *UserRepositoryPostgress) GetSessionByUserId(id uint) Result[Session]
 	return Success(storedSession)
 }
 
-func (pgDB *UserRepositoryPostgress) SaveSession(token string, userId uint) bool {
-	if err := pgDB.db.Where(Session{UserId: userId}).
-		Assign(Session{UserId: userId, Token: token}).
-		FirstOrCreate(&Session{UserId: userId, Token: token}); err != nil {
-		return false
+func (pgDB *UserRepositoryPostgress) GenerateNewSession(user User) Result[Session] {
+	createAuthTokenResult := utils.CreateToken(user.Email)
+	if createAuthTokenResult.IsError() {
+		return Error[Session](createAuthTokenResult.Error)
 	}
-	return true
+	createRefreshTokenResult := utils.CreateToken(user.Email)
+	if createRefreshTokenResult.IsError() {
+		return Error[Session](createRefreshTokenResult.Error)
+	}
+	newToken := createAuthTokenResult.Result
+	newRefreshToken := createAuthTokenResult.Result
+
+	session := Session{UserId: user.ID, AuthToken: newToken, RefreshToken: newRefreshToken}
+	if err := pgDB.db.Where(Session{UserId: user.ID}).
+		Assign(session).
+		FirstOrCreate(&session); err != nil {
+		return Error[Session]("Save session error")
+	}
+	return Success(session)
 }
 
 func (pgDB *UserRepositoryPostgress) RegisterNewUserByEmail(email string, password string) Result[VerificationToken] {
@@ -63,18 +76,18 @@ func (pgDB *UserRepositoryPostgress) RegisterNewUserByEmail(email string, passwo
 			return createUserErr
 		}
 
-		createTokenResult := utils.CreateToken(email)
-		if createTokenResult.IsError() {
+		createVerifyTokenResult := utils.CreateToken(email)
+		if createVerifyTokenResult.IsError() {
 			return &errors.GeneralError{
 				Message: "Verification token cannot be generated",
 			}
 		}
 
-		if err := tx.Create(&VerificationToken{UserId: newUser.ID, Token: createTokenResult.Result}).Error; err != nil {
+		if err := tx.Create(&VerificationToken{UserId: newUser.ID, Token: createVerifyTokenResult.Result}).Error; err != nil {
 			return err
 		}
 
-		verificationToken = createTokenResult.Result
+		verificationToken = createVerifyTokenResult.Result
 		return nil
 	})
 
@@ -125,6 +138,38 @@ func (pgDB *UserRepositoryPostgress) VerifyEmail(userId uint, verifyToken string
 	}
 
 	return Success("Verified successfully")
+}
+
+func (pgDB *UserRepositoryPostgress) getUserById(userId uint) Result[User] {
+	storedUser := User{}
+	result := pgDB.db.Where("ID = ?", userId).First(&storedUser)
+
+	if result.Error != nil {
+		log.Errorf("GetUserById: %v", result.Error)
+		return Error[User](result.Error.Error())
+	} else if result.RowsAffected == 0 {
+		log.Errorf("GetUserById: No user found")
+		return Error[User]("No user found")
+	}
+
+	return Success(storedUser)
+}
+
+func (pgDB *UserRepositoryPostgress) RefreshToken(refreshToken string) Result[Session] {
+	var storedSession Session
+	result := pgDB.db.Take(&Session{RefreshToken: refreshToken}, storedSession)
+
+	if result.Error != nil {
+		return Error[Session]("No session available")
+	}
+
+	getUserResult := pgDB.getUserById(storedSession.UserId)
+
+	if getUserResult.IsError() {
+		return Error[Session]("No user with this id")
+	}
+
+	return pgDB.GenerateNewSession(getUserResult.Result)
 }
 
 func NewUserRepository(db *gorm.DB) UserRepository {

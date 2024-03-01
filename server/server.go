@@ -46,6 +46,7 @@ func (s *echoServer) initializeUserHttpHandler() {
 
 	// Routers
 	s.app.POST("/login", loginHttpHandler.Login)
+	s.app.POST("/refresh_token", loginHttpHandler.RefreshToken)
 	s.app.POST("/register", registerHttpHandler.Register)
 	s.app.GET("/verify", registerHttpHandler.VerifyEmail)
 }

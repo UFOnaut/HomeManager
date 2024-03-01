@@ -16,7 +16,7 @@ type (
 
 	User struct {
 		gorm.Model
-		Email    string   `json:"email"`
+		Email    string   `json:"email" validate:"required,email"`
 		Password string   `json:"password"`
 		GroupIds GroupIds `json:"group_ids" gorm:"type:text" `
 		Name     string   `json:"name"`

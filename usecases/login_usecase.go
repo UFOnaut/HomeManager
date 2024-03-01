@@ -8,38 +8,32 @@ import (
 )
 
 type LoginUseCase interface {
-	Execute(in *models.LoginData) Result[string]
+	Execute(in *models.LoginData) Result[Session]
 }
 
 type LoginUseCaseImpl struct {
 	repository repositories.UserRepository
 }
 
-func (u *LoginUseCaseImpl) Execute(in *models.LoginData) Result[string] {
+func (u *LoginUseCaseImpl) Execute(in *models.LoginData) Result[Session] {
 	getUserResult := u.repository.GetUserByEmail(in.Email)
 	if getUserResult.IsError() {
-		return Error[string](getUserResult.Error)
+		return Error[Session](getUserResult.Error)
 	}
 
 	user := getUserResult.Result
 	if user.IsPasswordCorrect(in.Password) {
 		getSessionResult := u.repository.GetSessionByUserId(user.ID)
 
-		token := getSessionResult.Result.Token
-		verifyTokenError := utils.VerifyToken(token)
+		session := getSessionResult.Result
+		verifyTokenError := utils.VerifyToken(session.AuthToken)
 		if verifyTokenError != nil {
-			createTokenResult := utils.CreateToken(user.Email)
-			if createTokenResult.IsError() {
-				return createTokenResult
-			}
-			newToken := createTokenResult.Result
-			u.repository.SaveSession(newToken, user.ID)
-			return Success(newToken)
+			return u.repository.GenerateNewSession(user)
 		}
 
-		return Success(token)
+		return Success(session)
 	} else {
-		return Error[string]("Incorrect password")
+		return Error[Session]("Incorrect password")
 	}
 }
 

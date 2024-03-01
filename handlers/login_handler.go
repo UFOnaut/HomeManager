@@ -15,16 +15,19 @@ import (
 type (
 	LoginHandler interface {
 		Login(c echo.Context) error
+		RefreshToken(c echo.Context) error
 	}
 
 	LoginHttpHandler struct {
-		LoginUsecase usecases.LoginUseCase
+		LoginUsecase        usecases.LoginUseCase
+		RefreshTokenUseCase usecases.RefreshTokenUseCase
 	}
 )
 
 func NewLoginHttpHandler(repository repositories.UserRepository) LoginHandler {
 	return &LoginHttpHandler{
-		LoginUsecase: usecases.NewLoginUseCase(repository),
+		LoginUsecase:        usecases.NewLoginUseCase(repository),
+		RefreshTokenUseCase: usecases.NewRefreshTokenUseCase(repository),
 	}
 }
 
@@ -42,4 +45,20 @@ func (h *LoginHttpHandler) Login(c echo.Context) error {
 	}
 
 	return response.MakeLoginResponse(c, http.StatusOK, loginResult.Result)
+}
+
+func (h *LoginHttpHandler) RefreshToken(c echo.Context) error {
+	reqBody := new(models.RefreshToken)
+	var err = c.Bind(reqBody)
+	if err != nil {
+		log.Errorf("Error binding request body: %v", err)
+		return response.MakeBasicResponse(c, http.StatusBadRequest, "Bad request")
+	}
+
+	refreshTokenResult := h.RefreshTokenUseCase.Execute(reqBody.RefreshToken)
+	if refreshTokenResult.IsError() {
+		return response.MakeBasicResponse(c, http.StatusInternalServerError, refreshTokenResult.Error)
+	}
+
+	return response.MakeLoginResponse(c, http.StatusOK, refreshTokenResult.Result)
 }
