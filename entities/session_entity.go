@@ -1,14 +1,10 @@
 package entities
 
-import (
-	"gorm.io/gorm"
-)
-
 type (
 	Session struct {
-		gorm.Model
-		UserId       uint   `json:"user_id"`
-		AuthToken    string `json:"token"`
+		ID           string `json:"id" gorm:"primaryKey;size:16"`
+		UserId       string `json:"user_id"`
+		AuthToken    string `json:"auth_token"`
 		RefreshToken string `json:"refresh_token"`
 	}
 )

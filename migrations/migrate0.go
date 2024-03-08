@@ -19,6 +19,6 @@ func migrate(db database.Database) {
 		Email:    "test@gmail.com",
 		Password: "test_password",
 		Name:     "Illia",
-		GroupIds: entities.GroupIds{1, 2, 3},
+		GroupIds: entities.GroupIds{"1", "2", "3"},
 	})
 }

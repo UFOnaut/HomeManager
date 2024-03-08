@@ -1,12 +1,8 @@
 package entities
 
-import (
-	"gorm.io/gorm"
-)
-
 type (
 	Group struct {
-		gorm.Model
+		ID            string   `json:"id" gorm:"primaryKey;size:16"`
 		Name          string   `json:"name"`
 		ParticipantId GroupIds `json:"participant_ids"`
 	}

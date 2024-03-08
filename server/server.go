@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"home_manager/utils"
 
 	"home_manager/config"
 	"home_manager/handlers"
@@ -40,7 +41,10 @@ func (s *echoServer) Start() {
 
 func (s *echoServer) initializeUserHttpHandler() {
 	// Initialize all layers
-	userRepository := repositories.NewUserRepository(s.db)
+	tokenManager := utils.TokenManagerImpl{
+		Config: config.GetConfig(),
+	}
+	userRepository := repositories.NewUserRepository(s.db, &tokenManager)
 	loginHttpHandler := handlers.NewLoginHttpHandler(userRepository)
 	registerHttpHandler := handlers.NewRegisterHttpHandler(userRepository)
 

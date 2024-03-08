@@ -6,7 +6,6 @@ import (
 	"home_manager/config"
 	"home_manager/entities"
 	"net/smtp"
-	"strconv"
 	"strings"
 )
 
@@ -32,7 +31,7 @@ func SendVerificationEmail(email string, token entities.VerificationToken) error
 	message.WriteString("Please verify your email with this link\n")
 	message.WriteString(baseUrl)
 	message.WriteString("/verify")
-	message.WriteString("?user_id=" + strconv.Itoa(int(token.UserId)))
+	message.WriteString("?user_id=" + token.UserId)
 	message.WriteString("&verify_token=" + token.Token)
 	fmt.Println(message.String())
 

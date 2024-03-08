@@ -4,7 +4,6 @@ import (
 	. "home_manager/entities"
 	"home_manager/models"
 	"home_manager/repositories"
-	"home_manager/utils"
 )
 
 type LoginUseCase interface {
@@ -23,15 +22,7 @@ func (u *LoginUseCaseImpl) Execute(in *models.LoginData) Result[Session] {
 
 	user := getUserResult.Result
 	if user.IsPasswordCorrect(in.Password) {
-		getSessionResult := u.repository.GetSessionByUserId(user.ID)
-
-		session := getSessionResult.Result
-		verifyTokenError := utils.VerifyToken(session.AuthToken)
-		if verifyTokenError != nil {
-			return u.repository.GenerateNewSession(user)
-		}
-
-		return Success(session)
+		return u.repository.GetSessionByUser(user)
 	} else {
 		return Error[Session]("Incorrect password")
 	}

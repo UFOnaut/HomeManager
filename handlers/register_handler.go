@@ -1,13 +1,11 @@
 package handlers
 
 import (
-	"home_manager/repositories"
-	"net/http"
-	"strconv"
-
 	"home_manager/handlers/response"
 	"home_manager/models"
+	"home_manager/repositories"
 	"home_manager/usecases"
+	"net/http"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/log"
@@ -55,16 +53,10 @@ func (h *RegisterHttpHandler) VerifyEmail(c echo.Context) error {
 		return response.MakeBasicResponse(c, http.StatusBadRequest, "Bad request")
 	}
 
-	userIdParam := params.Get("user_id")
+	userId := params.Get("user_id")
 	verifyToken := params.Get("verify_token")
 
-	userId, err := strconv.Atoi(userIdParam)
-
-	if err != nil {
-		return err
-	}
-
-	verifyResult := h.VerifyEmailUseCase.Execute(uint(userId), verifyToken)
+	verifyResult := h.VerifyEmailUseCase.Execute(userId, verifyToken)
 	if verifyResult.IsError() {
 		return response.MakeBasicResponse(c, http.StatusInternalServerError, verifyResult.Error)
 	}

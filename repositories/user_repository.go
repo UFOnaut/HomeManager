@@ -10,20 +10,21 @@ import (
 
 type UserRepository interface {
 	GetUserByEmail(email string) Result[User]
-	GetSessionByUserId(id uint) Result[Session]
-	GenerateNewSession(user User) Result[Session]
+	GetSessionByUser(user User) Result[Session]
+	GenerateNewSession(user User, existingSession *Session) Result[Session]
 	RegisterNewUserByEmail(email string, password string) Result[VerificationToken]
-	VerifyEmail(userId uint, verifyToken string) Result[string]
+	VerifyEmail(userId string, verifyToken string) Result[string]
 	RefreshToken(refreshToken string) Result[Session]
 }
 
 type UserRepositoryPostgress struct {
-	db *gorm.DB
+	db           *gorm.DB
+	tokenManager utils.TokenManager
 }
 
-func (pgDB *UserRepositoryPostgress) GetUserByEmail(email string) Result[User] {
+func (repository *UserRepositoryPostgress) GetUserByEmail(email string) Result[User] {
 	storedUser := User{}
-	result := pgDB.db.Where("email = ?", email).First(&storedUser)
+	result := repository.db.Where("email = ?", email).First(&storedUser)
 
 	if result.Error != nil {
 		log.Errorf("GetUserByEmail: %v", result.Error)
@@ -36,47 +37,53 @@ func (pgDB *UserRepositoryPostgress) GetUserByEmail(email string) Result[User] {
 	return Success(storedUser)
 }
 
-func (pgDB *UserRepositoryPostgress) GetSessionByUserId(id uint) Result[Session] {
-	var storedSession Session
-	result := pgDB.db.Take(&Session{UserId: id}, storedSession)
-
-	if result.Error != nil {
-		return Success(Session{}) //new session
+func (repository *UserRepositoryPostgress) GetSessionByUser(user User) Result[Session] {
+	storedSession := Session{}
+	repository.db.Where("user_id = ?", user.ID).First(&storedSession)
+	verifyTokenError := repository.tokenManager.VerifyToken(storedSession.AuthToken)
+	if verifyTokenError != nil {
+		return repository.GenerateNewSession(user, &storedSession)
 	}
 
 	return Success(storedSession)
 }
 
-func (pgDB *UserRepositoryPostgress) GenerateNewSession(user User) Result[Session] {
-	createAuthTokenResult := utils.CreateToken(user.Email)
+func (repository *UserRepositoryPostgress) GenerateNewSession(user User, existingSession *Session) Result[Session] {
+	createAuthTokenResult := repository.tokenManager.CreateToken(user.Email, utils.AuthTokenType)
 	if createAuthTokenResult.IsError() {
 		return Error[Session](createAuthTokenResult.Error)
 	}
-	createRefreshTokenResult := utils.CreateToken(user.Email)
+	createRefreshTokenResult := repository.tokenManager.CreateToken(user.Email, utils.RefreshTokenType)
 	if createRefreshTokenResult.IsError() {
 		return Error[Session](createRefreshTokenResult.Error)
 	}
-	newToken := createAuthTokenResult.Result
-	newRefreshToken := createAuthTokenResult.Result
+	newAuthToken := createAuthTokenResult.Result
+	newRefreshToken := createRefreshTokenResult.Result
 
-	session := Session{UserId: user.ID, AuthToken: newToken, RefreshToken: newRefreshToken}
-	if err := pgDB.db.Where(Session{UserId: user.ID}).
-		Assign(session).
-		FirstOrCreate(&session); err != nil {
+	session := Session{
+		UserId:       user.ID,
+		AuthToken:    newAuthToken,
+		RefreshToken: newRefreshToken,
+	}
+	if existingSession != nil {
+		session.ID = existingSession.ID
+	}
+
+	if err := repository.db.Save(session); err.Error != nil {
 		return Error[Session]("Save session error")
 	}
 	return Success(session)
 }
 
-func (pgDB *UserRepositoryPostgress) RegisterNewUserByEmail(email string, password string) Result[VerificationToken] {
+func (repository *UserRepositoryPostgress) RegisterNewUserByEmail(email string, password string) Result[VerificationToken] {
 	var verificationToken string
 	newUser := User{Email: email, Password: password}
-	err := pgDB.db.Transaction(func(tx *gorm.DB) error {
+	err := repository.db.Transaction(func(tx *gorm.DB) error {
 		if createUserErr := tx.Create(&newUser).Error; createUserErr != nil {
 			return createUserErr
 		}
 
-		createVerifyTokenResult := utils.CreateToken(email)
+		createVerifyTokenResult := repository.tokenManager.CreateToken(email, utils.VerifyTokenType)
 		if createVerifyTokenResult.IsError() {
 			return &errors.GeneralError{
 				Message: "Verification token cannot be generated",
@@ -100,10 +107,10 @@ func (pgDB *UserRepositoryPostgress) RegisterNewUserByEmail(email string, passwo
 	})
 }
 
-func (pgDB *UserRepositoryPostgress) VerifyEmail(userId uint, verifyToken string) Result[string] {
-	err := pgDB.db.Transaction(func(tx *gorm.DB) error {
+func (repository *UserRepositoryPostgress) VerifyEmail(userId string, verifyToken string) Result[string] {
+	err := repository.db.Transaction(func(tx *gorm.DB) error {
 		var verificationToken VerificationToken
-		result := pgDB.db.Where(&VerificationToken{UserId: userId, Token: verifyToken}).First(&verificationToken)
+		result := repository.db.Where(&VerificationToken{UserId: userId, Token: verifyToken}).First(&verificationToken)
 
 		if result.Error != nil || result.RowsAffected == 0 {
 			log.Errorf("VerifyEmail: token not found")
@@ -112,7 +119,7 @@ func (pgDB *UserRepositoryPostgress) VerifyEmail(userId uint, verifyToken string
 			}
 		}
 
-		result = pgDB.db.Model(&User{}).Where("ID = ?", userId).Update("verified", "true")
+		result = repository.db.Model(&User{}).Where("ID = ?", userId).Update("verified", "true")
 
 		if result.Error != nil || result.RowsAffected == 0 {
 			log.Errorf("VerifyEmail")
@@ -121,7 +128,7 @@ func (pgDB *UserRepositoryPostgress) VerifyEmail(userId uint, verifyToken string
 			}
 		}
 
-		result = pgDB.db.Where("token = ?", verifyToken).Delete(&VerificationToken{})
+		result = repository.db.Where("token = ?", verifyToken).Delete(&VerificationToken{})
 
 		if result.Error != nil || result.RowsAffected == 0 {
 			log.Errorf("VerifyEmail: token not found")
@@ -140,9 +147,9 @@ func (pgDB *UserRepositoryPostgress) VerifyEmail(userId uint, verifyToken string
 	return Success("Verified successfully")
 }
 
-func (pgDB *UserRepositoryPostgress) getUserById(userId uint) Result[User] {
+func (repository *UserRepositoryPostgress) getUserById(userId string) Result[User] {
 	storedUser := User{}
-	result := pgDB.db.Where("ID = ?", userId).First(&storedUser)
+	result := repository.db.Where("ID = ?", userId).First(&storedUser)
 
 	if result.Error != nil {
 		log.Errorf("GetUserById: %v", result.Error)
@@ -155,23 +162,23 @@ func (pgDB *UserRepositoryPostgress) getUserById(userId uint) Result[User] {
 	return Success(storedUser)
 }
 
-func (pgDB *UserRepositoryPostgress) RefreshToken(refreshToken string) Result[Session] {
+func (repository *UserRepositoryPostgress) RefreshToken(refreshToken string) Result[Session] {
 	var storedSession Session
-	result := pgDB.db.Take(&Session{RefreshToken: refreshToken}, storedSession)
+	result := repository.db.Take(&Session{RefreshToken: refreshToken}, storedSession)
 
 	if result.Error != nil {
 		return Error[Session]("No session available")
 	}
 
-	getUserResult := pgDB.getUserById(storedSession.UserId)
+	getUserResult := repository.getUserById(storedSession.UserId)
 
 	if getUserResult.IsError() {
 		return Error[Session]("No user with this id")
 	}
 
-	return pgDB.GenerateNewSession(getUserResult.Result)
+	return repository.GenerateNewSession(getUserResult.Result, &storedSession)
 }
 
-func NewUserRepository(db *gorm.DB) UserRepository {
-	return &UserRepositoryPostgress{db: db}
+func NewUserRepository(db *gorm.DB, manager utils.TokenManager) UserRepository {
+	return &UserRepositoryPostgress{db: db, tokenManager: manager}
 }

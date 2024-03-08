@@ -2,7 +2,6 @@ package entities
 
 import (
 	"crypto/sha256"
-
 	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
@@ -12,10 +11,10 @@ import (
 )
 
 type (
-	GroupIds []uint
+	GroupIds []string
 
 	User struct {
-		gorm.Model
+		ID       string   `json:"id" gorm:"primaryKey;size:16"`
 		Email    string   `json:"email" validate:"required,email"`
 		Password string   `json:"password"`
 		GroupIds GroupIds `json:"group_ids" gorm:"type:text" `
@@ -24,8 +23,8 @@ type (
 	}
 
 	VerificationToken struct {
-		gorm.Model
-		UserId uint   `json:"user_id"`
+		ID     string `json:"id" gorm:"primaryKey;size:16"`
+		UserId string `json:"user_id"`
 		Token  string `json:"token"`
 	}
 )
@@ -43,15 +42,15 @@ func (groupIds GroupIds) Scan(value interface{}) error {
 }
 
 func (u *User) BeforeSave(tx *gorm.DB) (err error) {
-	u.Password = hash(u.Password)
+	u.Password = Hash(u.Password)
 	return nil
 }
 
 func (u *User) IsPasswordCorrect(password string) bool {
-	return hash(password) == u.Password
+	return Hash(password) == u.Password
 }
 
-func hash(in string) string {
+func Hash(in string) string {
 	h := sha256.Sum256([]byte(in))
 	return fmt.Sprintf("%x", h[:])
 }
