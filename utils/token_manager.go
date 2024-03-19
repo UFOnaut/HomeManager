@@ -5,7 +5,6 @@ import (
 	"github.com/golang-jwt/jwt"
 	"home_manager/config"
 	"home_manager/entities"
-	"time"
 )
 
 const AuthTokenType = "auth"
@@ -23,12 +22,7 @@ type (
 )
 
 func (tokenManager *TokenManagerImpl) CreateToken(email string, tokenType string) entities.Result[string] {
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256,
-		jwt.MapClaims{
-			"type":     tokenType,
-			"username": email,
-			"exp":      time.Now().Add(time.Hour * 24).Unix(),
-		})
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, GetUniqueClaims(email, tokenType))
 
 	tokenString, err := token.SignedString([]byte(config.GetConfig().Jwt.SecretKey))
 	if err != nil {
